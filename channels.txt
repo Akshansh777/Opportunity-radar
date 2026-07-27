@@ -1,0 +1,10 @@
+# Add one YouTube channel per line, in ANY of these formats:
+#   https://www.youtube.com/@SomeHandle
+#   https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxxx
+#   @SomeHandle
+#   UCxxxxxxxxxxxxxxxxxxxxxx   (raw channel ID)
+#
+# Lines starting with # are ignored. Blank lines are ignored.
+# The script auto-resolves whatever format you paste into a channel ID.
+
+@TrickyMan
