@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Opportunity Radar</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<style>
+  :root{
+    --bg:#0A0F1A;
+    --panel:#101828;
+    --line:#1E2A3F;
+    --text:#E8ECF1;
+    --muted:#5B6B82;
+    --signal:#33FF99;
+    --high:#FF5A5F;
+    --med:#F5B942;
+    --low:#33FF99;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(51,255,153,0.07), transparent),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    min-height:100vh;
+  }
+
+  .wrap{max-width:880px;margin:0 auto;padding:64px 24px 120px;}
+
+  header{margin-bottom:56px;}
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--signal);
+    display:flex;align-items:center;gap:10px;
+    margin-bottom:18px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--signal);
+    box-shadow:0 0 0 0 rgba(51,255,153,0.6);
+    animation:pulse 2.2s infinite;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(51,255,153,0.5);}
+    70%{box-shadow:0 0 0 9px rgba(51,255,153,0);}
+    100%{box-shadow:0 0 0 0 rgba(51,255,153,0);}
+  }
+  h1{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:clamp(32px,5vw,48px);
+    letter-spacing:-0.01em;
+    line-height:1.05;
+  }
+  .sub{
+    margin-top:14px;
+    color:var(--muted);
+    font-size:15px;
+    max-width:52ch;
+    line-height:1.6;
+  }
+
+  .scanline{
+    height:1px;
+    width:100%;
+    margin:40px 0;
+    background:linear-gradient(90deg, transparent, var(--line) 20%, var(--line) 80%, transparent);
+  }
+
+  #status{
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--muted);
+  }
+
+  #digest{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:36px 40px;
+  }
+  #digest h3{
+    font-family:var(--font-display);
+    font-size:22px;
+    margin-bottom:22px;
+    color:var(--text);
+  }
+  #digest h4{
+    font-family:var(--font-mono);
+    font-size:13px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    margin:30px 0 14px;
+    padding-bottom:10px;
+    border-bottom:1px solid var(--line);
+  }
+  #digest h4:first-of-type{margin-top:0;}
+  #digest ul{list-style:none;}
+  #digest li{margin-bottom:22px;padding-left:18px;border-left:2px solid var(--line);}
+  #digest li strong{font-family:var(--font-display);font-size:16px;font-weight:700;display:block;margin-bottom:8px;}
+  #digest li ul{margin-top:6px;}
+  #digest li li{border-left:none;padding-left:0;margin-bottom:6px;font-size:14px;color:#C7CFDB;line-height:1.55;}
+  #digest li li strong{display:inline;font-size:14px;font-family:var(--font-body);font-weight:600;color:var(--muted);}
+  #digest a{color:var(--signal);text-decoration:none;border-bottom:1px solid rgba(51,255,153,0.35);}
+  #digest a:hover{border-bottom-color:var(--signal);}
+  #digest p{color:var(--muted);line-height:1.7;}
+
+  /* Color-code the three priority headers by matching text content via JS-added classes */
+  .h-high{color:var(--high) !important;border-bottom-color:rgba(255,90,95,0.3) !important;}
+  .h-high + ul li{border-left-color:var(--high);}
+  .h-med{color:var(--med) !important;border-bottom-color:rgba(245,185,66,0.3) !important;}
+  .h-med + ul li{border-left-color:var(--med);}
+  .h-low{color:var(--low) !important;border-bottom-color:rgba(51,255,153,0.3) !important;}
+  .h-low + ul li{border-left-color:var(--low);}
+
+  .archive{margin-top:56px;}
+  .archive h2{
+    font-family:var(--font-mono);
+    font-size:12px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:18px;
+  }
+  #archive-list{list-style:none;border-top:1px solid var(--line);}
+  #archive-list li{
+    border-bottom:1px solid var(--line);
+  }
+  #archive-list button{
+    all:unset;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    width:100%;
+    padding:14px 4px;
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--text);
+    cursor:pointer;
+  }
+  #archive-list button:hover{color:var(--signal);}
+  #archive-list button::after{content:'→';color:var(--muted);}
+
+  footer{margin-top:70px;font-family:var(--font-mono);font-size:12px;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow"><span class="dot"></span>Live feed · updates daily at 07:00</div>
+    <h1>Opportunity Radar</h1>
+    <p class="sub">Every subscribed channel, scanned daily. Fluff filtered out — only internships, hackathons, hiring challenges, open-source programs, and certifications make it through.</p>
+  </header>
+
+  <div id="status">Loading latest scan…</div>
+  <div class="scanline"></div>
+  <div id="digest"></div>
+
+  <div class="archive">
+    <h2>Archive</h2>
+    <ul id="archive-list"></ul>
+  </div>
+
+  <footer>Signal / noise ratio maintained by a small Gemini-powered scout · not affiliated with YouTube</footer>
+</div>
+
+<script>
+function colorizeHeaders(container){
+  container.querySelectorAll('h4').forEach(h => {
+    const t = h.textContent;
+    if(t.includes('High')) h.classList.add('h-high');
+    else if(t.includes('Medium')) h.classList.add('h-med');
+    else if(t.includes('Low')) h.classList.add('h-low');
+  });
+}
+
+async function loadDigest(path, statusPrefix){
+  const digestEl = document.getElementById('digest');
+  const statusEl = document.getElementById('status');
+  try{
+    const res = await fetch(path + '?t=' + Date.now());
+    if(!res.ok) throw new Error('not found');
+    const text = await res.text();
+    digestEl.innerHTML = marked.parse(text);
+    colorizeHeaders(digestEl);
+    statusEl.textContent = statusPrefix;
+  }catch(e){
+    digestEl.innerHTML = '<p>No digest published yet. Once the first scheduled run completes, it will appear here.</p>';
+    statusEl.textContent = 'No data yet';
+  }
+}
+
+async function loadArchive(){
+  const listEl = document.getElementById('archive-list');
+  try{
+    const res = await fetch('archive/manifest.json?t=' + Date.now());
+    if(!res.ok) throw new Error('none');
+    const files = await res.json();
+    listEl.innerHTML = '';
+    files.forEach(fname => {
+      const dateStr = fname.replace('digest-','').replace('.md','');
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.textContent = dateStr;
+      btn.onclick = () => loadDigest('archive/' + fname, 'Viewing archived scan · ' + dateStr);
+      li.appendChild(btn);
+      listEl.appendChild(li);
+    });
+  }catch(e){
+    listEl.innerHTML = '<li style="color:var(--muted);font-family:var(--font-mono);font-size:13px;padding:10px 0;">No archive yet</li>';
+  }
+}
+
+loadDigest('digest-latest.md', 'Showing today\'s scan');
+loadArchive();
+</script>
+</body>
+</html>
