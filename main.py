@@ -33,7 +33,7 @@ from google.genai import types
 # ---------- CONFIG ----------
 LOOKBACK_HOURS = 48
 MAX_VIDEOS_PER_CHANNEL = 15
-MODEL = "gemini-2.5-flash"   # free tier, supports direct YouTube URL analysis
+MODEL = "gemini-3-flash"    # free tier, supports direct YouTube URL analysis
 
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini = genai.Client(api_key=GEMINI_API_KEY)
