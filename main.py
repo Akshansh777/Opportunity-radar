@@ -161,20 +161,28 @@ def get_recent_videos(channel_id: str) -> list[dict]:
 # ---------- STEP 3: GEMINI - EXTRACT OPPORTUNITIES DIRECTLY FROM VIDEO ----------
 
 STAGE1_SYSTEM_PROMPT = """You are a tech-opportunity scout. You will be given a YouTube video (watch it \
-directly) plus its title and description. Your job is to determine if it contains genuine, actionable \
-tech opportunities: Internships, Hackathons, Hiring Challenges, Open Source Programs, or Certifications.
+directly) plus its title and description. Your job is to extract EVERY genuine, actionable tech \
+opportunity mentioned: Internships, Hackathons, Hiring Challenges, Off-Campus Drives, Open Source \
+Programs, Scholarships, Contests/Competitions, Certifications, and Courses (free or paid, official or \
+informal — anything a viewer could actually go sign up for or apply to).
 
-IGNORE / SKIP:
-- Clickbait, "top 10" listicles with no real application info, motivational fluff, generic career advice, \
-  vague "many companies are hiring" statements with no specifics.
-- Opportunities with no identifiable company/organization or no real detail.
+BE INCLUSIVE. Only skip a video entirely if it has ZERO actionable opportunities in it — e.g. pure \
+channel promotion ("subscribe for more"), a personal vlog/life update, a reaction video, unrelated tech \
+news/reviews with nothing to apply to, or a "my setup" tour. Do NOT skip something just because it's \
+presented as a list (a "top 5 internships" video with 5 real internships should yield 5 extracted \
+opportunities, not zero). Do NOT skip something just because some details are missing — extract what IS \
+known and mark the rest "Not specified". When in doubt, extract it rather than skip it.
 
-For each genuine opportunity found, extract:
-- company: organization/company name
-- title: role or program title
-- type: one of "Internship", "Hackathon", "Hiring Challenge", "Open Source Program", "Certification"
+For each opportunity found, extract:
+- company: organization/company/platform name
+- title: role, program, or course title
+- category: "Opportunity" (internships, hackathons, hiring challenges, off-campus drives, open source \
+programs, scholarships, contests) OR "Course" (certifications, courses, learning programs, skill-building \
+tracks)
+- type: one of "Internship", "Hackathon", "Hiring Challenge", "Off-Campus Drive", "Open Source Program", \
+"Scholarship", "Contest", "Certification", "Course"
 - eligibility: batch year, branch, skill requirements, etc. (best guess from content, "Not specified" if unclear)
-- deadline_text: the deadline or urgency info exactly as stated/shown in the video (e.g. "apply within 48 hours", "by 15th July", "rolling basis")
+- deadline_text: the deadline or urgency info exactly as stated/shown in the video (e.g. "apply within 48 hours", "by 15th July", "rolling basis", "Not specified" if none given)
 - context: ONE sentence summarizing what the video said about it
 - apply_link: the actual application/company portal URL if mentioned in the description or shown on-screen \
 in the video. If only a generic Linktree, Telegram, Instagram, or "link in description" reference is given \
@@ -183,7 +191,8 @@ with no real destination URL visible, set this to "Check Channel Links".
 Respond with ONLY valid JSON (no markdown fences, no preamble, no commentary), in this exact shape:
 {"found": true or false, "opportunities": [ { ... } ]}
 
-If nothing genuine is found, respond with {"found": false, "opportunities": []}
+Only respond with {"found": false, "opportunities": []} if the video truly has nothing actionable at all — \
+double check before concluding this.
 """
 
 
@@ -230,9 +239,16 @@ Description:
         data = json.loads(raw)
     except json.JSONDecodeError:
         print(f"    [!] Could not parse Gemini JSON for '{video['title']}'")
+        print(f"    [debug] raw response was: {raw[:500]}")
         return []
 
+    found = data.get("found", False)
     opps = data.get("opportunities", [])
+    if not found or not opps:
+        print(f"    -> Gemini found nothing actionable in this video")
+    else:
+        print(f"    -> raw extraction: {len(opps)} opportunity(ies)")
+
     for o in opps:
         o["source_video"] = video["title"]
         o["source_channel"] = video["channel_name"]
@@ -243,46 +259,76 @@ Description:
 # ---------- STEP 4: DEDUPE, CLASSIFY, FORMAT ----------
 
 STAGE2_SYSTEM_PROMPT = """You are formatting a daily tech-opportunity digest for a student/job-seeker. \
-You will receive a JSON list of raw extracted opportunities (possibly with duplicates from multiple videos \
-covering the same opportunity — merge duplicates, keeping the best link and most complete details).
+You will receive a JSON list of raw extracted items (possibly with duplicates from multiple videos \
+covering the same thing — merge duplicates, keeping the best link and most complete details).
 
-Classify each opportunity into exactly one urgency bucket using this matrix:
+Each item has a "category" field: "Opportunity" (internships, hackathons, hiring challenges, off-campus \
+drives, open source programs, scholarships, contests) or "Course" (certifications, courses, learning \
+programs). Group the digest into two top-level sections by this category — see structure below.
+
+Within EACH section, classify every item into exactly one urgency bucket using this matrix:
 - HIGH PRIORITY: deadline within 72 hours from today, flash hiring, or explicitly heavily limited referral/slots.
 - MEDIUM PRIORITY: deadline between 3-7 days from today, or standard off-campus drives with no extreme urgency.
-- LOW PRIORITY / FLEXIBLE: open-ended windows, hackathons/programs weeks away, ongoing community programs, \
-or no firm deadline stated.
+- LOW PRIORITY / FLEXIBLE: open-ended windows, programs weeks away, ongoing/rolling enrollment, or no firm deadline stated.
 
 If deadline_text is ambiguous or relative (e.g. "this week"), use today's date (given below) to reason about \
 which bucket it falls into. If truly no timing information exists, default to LOW PRIORITY / FLEXIBLE.
 
-Output ONLY a clean Markdown digest in EXACTLY this structure (omit a section entirely if it has zero \
-entries in that bucket):
+Output ONLY a clean Markdown digest in EXACTLY this structure. Omit an entire urgency subsection if it has \
+zero entries. Omit an entire top-level section (## 🎯 Opportunities or ## 📚 Courses & Certifications) only \
+if it has zero entries across all three buckets:
 
 ### 📅 Daily Opportunity Digest: {today}
 
+## 🎯 Opportunities
+
 #### 🚨 High Priority (Act Fast!)
-* **[Company Name] – [Job/Event Title]**
+* **[Company Name] – [Title]**
+  - **Type:** [Internship / Hackathon / Hiring Challenge / Off-Campus Drive / Open Source Program / Scholarship / Contest]
   - **Eligibility:** ...
   - **Deadline/Urgency:** ...
   - **Source/Context:** ...
   - **Apply Here Link:** ...
 
 #### ⏳ Medium Priority (Apply This Weekend)
-* **[Company Name] – [Job/Event Title]**
+* **[Company Name] – [Title]**
+  - **Type:** ...
   - **Eligibility:** ...
   - **Deadline:** ...
   - **Apply Here Link:** ...
 
 #### 🟢 Low Priority / Flexible
-* **[Company Name] – [Job/Event Title]**
+* **[Company Name] – [Title]**
+  - **Type:** ...
   - **Eligibility:** ...
   - **Deadline:** ...
   - **Apply Here Link:** ...
 
-If there are zero opportunities across all buckets, output exactly:
+## 📚 Courses & Certifications
+
+#### 🚨 High Priority (Act Fast!)
+* **[Provider] – [Course/Certification Title]**
+  - **Eligibility:** ...
+  - **Deadline/Urgency:** ...
+  - **Source/Context:** ...
+  - **Apply Here Link:** ...
+
+#### ⏳ Medium Priority
+* **[Provider] – [Course/Certification Title]**
+  - **Eligibility:** ...
+  - **Deadline:** ...
+  - **Apply Here Link:** ...
+
+#### 🟢 Low Priority / Flexible
+* **[Provider] – [Course/Certification Title]**
+  - **Eligibility:** ...
+  - **Deadline:** ...
+  - **Apply Here Link:** ...
+
+If there are zero items across everything, output exactly:
 ### 📅 Daily Opportunity Digest: {today}
 
-No genuine high-value opportunities found in the last 48 hours. Nothing but fluff today — check back tomorrow.
+No opportunities or courses found in the last 48 hours. Check back tomorrow.
 """
 
 
@@ -292,8 +338,7 @@ def build_digest(all_opportunities: list[dict]) -> str:
     if not all_opportunities:
         return (
             f"### 📅 Daily Opportunity Digest: {today_str}\n\n"
-            "No genuine high-value opportunities found in the last 48 hours. "
-            "Nothing but fluff today — check back tomorrow."
+            "No opportunities or courses found in the last 48 hours. Check back tomorrow."
         )
 
     system_prompt = STAGE2_SYSTEM_PROMPT.replace("{today}", today_str)
