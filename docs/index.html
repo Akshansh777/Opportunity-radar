@@ -92,6 +92,14 @@
     margin-bottom:22px;
     color:var(--text);
   }
+  #digest h2.h-section{
+    font-family:var(--font-display);
+    font-size:19px;
+    font-weight:700;
+    margin:36px 0 8px;
+    color:var(--signal);
+  }
+  #digest h2.h-section:first-of-type{margin-top:26px;}
   #digest h4{
     font-family:var(--font-mono);
     font-size:13px;
@@ -178,6 +186,9 @@ function colorizeHeaders(container){
     if(t.includes('High')) h.classList.add('h-high');
     else if(t.includes('Medium')) h.classList.add('h-med');
     else if(t.includes('Low')) h.classList.add('h-low');
+  });
+  container.querySelectorAll('h2').forEach(h => {
+    h.classList.add('h-section');
   });
 }
 
