@@ -1,3 +1,3 @@
-### 📅 Daily Opportunity Digest: November 26, 2026
+### 📅 Daily Opportunity Digest: November 27, 2026
 
 No opportunities or courses found in the last 48 hours. Check back tomorrow.
